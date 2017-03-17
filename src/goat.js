@@ -8,7 +8,7 @@ const LOGICAL_OPERATORS = ['&&', '||'];
 const RELATIONAL_OPERATORS = ['==', '!=', '===', '!==', '!', '>=', '<=', '>', '<'];
 const BOOLEANS = ['true', 'false']; 
 
-export class ExpressionParser {
+export class Goat {
     constructor(expression, controller) {
         this._expression = expression;
         this._controller = controller;

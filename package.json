@@ -1,0 +1,30 @@
+{
+  "name": "goat.js",
+  "version": "1.0.0",
+  "description": "Parse expressions",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha --compilers js:babel-core/register tests",
+    "test:watch": "mocha --compilers js:babel-core/register tests",
+    "build": "webpack --env build",
+    "dev": "webpack --progress --colors --watch --env dev"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ericmackrodt/goat.js.git"
+  },
+  "author": "Eric Mackrodt",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ericmackrodt/goat.js/issues"
+  },
+  "homepage": "https://github.com/ericmackrodt/goat.js#readme",
+  "devDependencies": {
+    "babel-loader": "^6.4.1",
+    "babel-preset-es2015": "^6.24.0",
+    "babel-register": "^6.24.0",
+    "chai": "^3.5.0",
+    "mocha": "^3.2.0",
+    "webpack": "^2.2.1"
+  }
+}
