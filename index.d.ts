@@ -4,6 +4,7 @@ declare module 'goat.js' {
 
 namespace Goat {
     export class Goat {
+        get fields(): string[];
         constructor (expression: string, controller: any);
         evaluate(): boolean;
     }

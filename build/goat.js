@@ -91,7 +91,12 @@ var LOGICAL_OPERATORS = ['&&', '||'];
 var RELATIONAL_OPERATORS = ['==', '!=', '===', '!==', '!', '>=', '<=', '>', '<'];
 var BOOLEANS = ['true', 'false'];var
 
-Goat = exports.Goat = function () {
+Goat = exports.Goat = function () {_createClass(Goat, [{ key: 'fields', get: function get()
+
+        {
+            return this._fields;
+        } }]);
+
     function Goat(expression, controller) {_classCallCheck(this, Goat);
         this._expression = expression;
         this._controller = controller;
@@ -113,6 +118,15 @@ Goat = exports.Goat = function () {
             }
 
             return this._getOperation('!', evaluate || this._getValue(value));
+        } }, { key: '_setField', value: function _setField(
+
+        field) {
+            if (!this._fields) {
+                this._fields = [];
+            }
+            if (typeof field === 'string') {
+                this.fields.push(field);
+            }
         } }, { key: '_getValue', value: function _getValue(
 
         m) {
@@ -123,6 +137,7 @@ Goat = exports.Goat = function () {
             } else if (BOOLEANS.indexOf(m) > -1) {
                 return m === 'true';
             } else if (m in this._controller) {
+                this._setField(m);
                 return this._getPropertyEval(this._controller, m);
             } else if (!isNaN(m)) {
                 return parseInt(m);
