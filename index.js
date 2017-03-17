@@ -1,3 +1,1 @@
-import { Goat } from './src/goat';
-
-module.exports = ExpressionParser;
+export { Goat } from './src/goat';

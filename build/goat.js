@@ -262,9 +262,7 @@ Goat = exports.Goat = function () {
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
-var _goat = __webpack_require__(0);
-
-module.exports = ExpressionParser;
+Object.defineProperty(exports, "__esModule", { value: true });var _goat = __webpack_require__(0);Object.defineProperty(exports, 'Goat', { enumerable: true, get: function get() {return _goat.Goat;} });
 
 /***/ })
 /******/ ]);
