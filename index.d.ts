@@ -1,12 +1,10 @@
-declare var goat: Goat.IGoat;
-
 declare module 'goat.js' {
-    export = goat;
+    export = Goat;
 }
 
 namespace Goat {
-    interface IGoat {
-        new (expression: string, controller: any): IGoat;
+    export class Goat {
+        constructor (expression: string, controller: any);
         evaluate(): boolean;
     }
 }
