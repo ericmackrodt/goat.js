@@ -226,4 +226,15 @@ describe('ExpressionParser', () => {
 
         { expression: 'prop1 === false && (prop2 === false || (prop2 === true || prop3 === false)) || prop5 === false', obj: { prop1: true, prop2: true, prop3: true, prop4: true, prop5: true }, expect: false }
     ]);
+
+    it('should list properties when evaluating', () => {
+        const sut = new Goat('prop1 === true && prop2 === true', {
+            prop1: true,
+            prop2: false
+        });
+        const result = sut.evaluate();
+        sut.fields.should.be.instanceOf(Array);
+        sut.fields[0].should.equal('prop1');
+        sut.fields[1].should.equal('prop2');
+    });
 });

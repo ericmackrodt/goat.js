@@ -9,6 +9,11 @@ const RELATIONAL_OPERATORS = ['==', '!=', '===', '!==', '!', '>=', '<=', '>', '<
 const BOOLEANS = ['true', 'false']; 
 
 export class Goat {
+
+    get fields() {
+        return this._fields;
+    }
+
     constructor(expression, controller) {
         this._expression = expression;
         this._controller = controller;
@@ -32,6 +37,15 @@ export class Goat {
         return this._getOperation('!', evaluate || this._getValue(value));
     }
 
+    _setField(field) {
+        if (!this._fields) {
+            this._fields = [];
+        }
+        if (typeof field === 'string') {
+            this.fields.push(field);
+        }
+    }
+
     _getValue(m) {
         let match;
         if ((match = this._getRegexMatchArray(NOT_REGEX, m))) {
@@ -40,6 +54,7 @@ export class Goat {
         } else if (BOOLEANS.indexOf(m) > -1) {
             return m === 'true';
         } else if (m in this._controller) {
+            this._setField(m);
             return this._getPropertyEval(this._controller, m);
         } else if (!isNaN(m)) {
             return parseInt(m);

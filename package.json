@@ -1,12 +1,12 @@
 {
   "name": "goatjs",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Goat.js is a conditional expre-he-he-he-ssion parser",
   "main": "./build/goat.js",
   "types": "./index.d.ts",
   "scripts": {
     "test": "mocha --compilers js:babel-core/register tests",
-    "test:watch": "mocha --compilers js:babel-core/register tests",
+    "test:watch": "mocha --compilers js:babel-core/register tests --watch",
     "build": "webpack --env build",
     "dev": "webpack --progress --colors --watch --env dev"
   },
