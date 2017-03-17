@@ -1,7 +1,7 @@
 {
   "name": "goat.js",
-  "version": "1.0.0",
-  "description": "Parse expressions",
+  "version": "1.0.1",
+  "description": "Goat.js is a conditional expre-he-he-he-ssion parser",
   "main": "index.js",
   "scripts": {
     "test": "mocha --compilers js:babel-core/register tests",
