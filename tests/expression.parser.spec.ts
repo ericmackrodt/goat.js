@@ -1,4 +1,4 @@
-import { Goat } from './../src/goat';
+import expressionParser from './../src/expression.parser';
 import * as chai from 'chai';
 
 const should = chai.should();
@@ -8,7 +8,7 @@ describe('ExpressionParser', () => {
     function execute(tests) {
         tests.forEach((t, i) => {
             it(`should be [${t.expect}] when [${t.expression}]. (index: ${i})`, () => {
-                const sut = new Goat(t.expression, t.obj);
+                const sut = expressionParser(t.expression, t.obj);
                 const result = sut.evaluate();
                 result.should.be.equal(t.expect);
             });
@@ -228,10 +228,11 @@ describe('ExpressionParser', () => {
     ]);
 
     it('should list properties when evaluating', () => {
-        const sut = new Goat('prop1 === true && prop2 === true', {
+        const controller = {
             prop1: true,
             prop2: false
-        });
+        };
+        const sut = expressionParser('prop1 === true && prop2 === true', controller);
         const result = sut.evaluate();
         sut.fields.should.be.instanceOf(Array);
         sut.fields[0].should.equal('prop1');

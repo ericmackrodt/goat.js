@@ -1,0 +1,12 @@
+{
+    "compilerOptions": {
+        "target": "es5",
+        "sourceMap": true,
+        "noImplicitAny": true,
+        "strictNullChecks": true,
+        "module": "commonjs"
+    },
+    "include": [
+        "src/**/*.ts"
+    ]
+}
