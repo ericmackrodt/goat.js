@@ -5,8 +5,8 @@
   "main": "./build/goat.js",
   "types": "./index.d.ts",
   "scripts": {
-    "test": "mocha --compilers ts:ts-node/register tests/**/*.ts",
-    "test:watch": "mocha --compilers ts:ts-node/register tests/**/*.ts --watch",
+    "test": "mocha --compilers ts:ts-node/register tests",
+    "test:watch": "mocha --compilers ts:ts-node/register tests --watch",
     "build": "webpack --env build",
     "dev": "webpack --progress --colors --watch --env dev"
   },

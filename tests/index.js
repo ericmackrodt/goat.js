@@ -1,1 +1,0 @@
-import './goat.spec';

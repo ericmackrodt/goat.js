@@ -1,14 +1,14 @@
-import expressionParser from './../src/expression.parser';
+import ExpressionParser from './../src/expression.parser';
 import * as chai from 'chai';
 
 const should = chai.should();
 
 describe('ExpressionParser', () => {
 
-    function execute(tests) {
+    function execute(tests: { expression: string, obj: { [key: string]: any }, expect: boolean }[]) {
         tests.forEach((t, i) => {
             it(`should be [${t.expect}] when [${t.expression}]. (index: ${i})`, () => {
-                const sut = expressionParser(t.expression, t.obj);
+                const sut = new ExpressionParser(t.expression, t.obj);
                 const result = sut.evaluate();
                 result.should.be.equal(t.expect);
             });
@@ -232,7 +232,7 @@ describe('ExpressionParser', () => {
             prop1: true,
             prop2: false
         };
-        const sut = expressionParser('prop1 === true && prop2 === true', controller);
+        const sut = new ExpressionParser('prop1 === true && prop2 === true', controller);
         const result = sut.evaluate();
         sut.fields.should.be.instanceOf(Array);
         sut.fields[0].should.equal('prop1');

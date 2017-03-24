@@ -14,8 +14,10 @@ interface IKeyFunction {
 }
 
 interface IKeyValue {
-    [key: string]: () => any;
+    [key: string]: any;
 }
+
+const isBoolean = (value: string) => ['true', 'false'].indexOf(value) > -1;
 
 const matchExpression = (expression: string) => 
     expression.match(/([&|]{2})|([\(\)])|([!\w\.]+)\s*([^\w\s|&]{1,3})?\s*([^\sˆ&|\)]+)?/g);
@@ -116,8 +118,6 @@ const processExpression = (expression: any, controller: IKeyValue): () => boolea
         if ((index = expression.indexOf('&&')) > -1 && 
             (expression[leftIndex = index - 1] !== ')') &&
             (expression[rightIndex = index + 1] !== '(')) {
-            // leftIndex = index - 1;
-            // rightIndex = index + 1;
             left = processExpression(expression[leftIndex], controller);
             right = processExpression(expression[rightIndex], controller);
             expression[leftIndex] = getOperation('&&', <() => boolean>left, <() => boolean>right);
@@ -148,21 +148,25 @@ const processExpression = (expression: any, controller: IKeyValue): () => boolea
 }
 
 const buildEvaluator = (expression: string, controller: IKeyValue) => {
+    debugger;
     const match = matchExpression(expression) || [];
-    // EXPRESSION_REGEX.lastIndex = 0;
     return processExpression(match, controller);
 }
 
 export default class {
     private _evaluator: () => boolean;
 
-    constructor (expression: string, controller: IKeyValue) {
-    
+    public get fields(): string[] {
+        return [];
+    }
+
+    constructor (private _expression: string, private _controller: IKeyValue) {
+        
     }
     
     public evaluate() {
         if (!this._evaluator) {
-            this._evaluator = <() => boolean>buildEvaluator(this._evaluator, this._evaluator);
+            this._evaluator = <() => boolean>buildEvaluator(this._expression, this._controller);
         }
 
         return this._evaluator();

@@ -2,9 +2,9 @@ declare module 'goat.js' {
     export = Goat;
 }
 
-namespace Goat {
+declare namespace Goat {
     export class Goat {
-        get fields(): string[];
+        fields: string[];
         constructor (expression: string, controller: any);
         evaluate(): boolean;
     }
