@@ -4,21 +4,38 @@
 const webpack = require('webpack');
 const UglifyJsPlugin = webpack.optimize.UglifyJsPlugin;
 const path = require('path');
-const env  = require('yargs').argv.env; // use --env with webpack 2
+const env = require('yargs').argv.env; // use --env with webpack 2
 
 let libraryName = 'goat';
 
-let plugins = [], outputFile;
+let plugins = [];
+let outputFile;
 
 if (env === 'build') {
-  plugins.push(new UglifyJsPlugin({ minimize: true }));
+  plugins.push(new UglifyJsPlugin({ minimize: true, sourceMap: true }));
   outputFile = libraryName + '.min.js';
 } else {
   outputFile = libraryName + '.js';
 }
 
+function DtsBundlePlugin() {}
+DtsBundlePlugin.prototype.apply = function (compiler) {
+  compiler.plugin('done', function() {
+    const dts = require('dts-bundle');
+    dts.bundle({
+      name: libraryName,
+      main: './build/src/expression.parser.d.ts',
+      out: './../' + libraryName + '.d.ts',
+      removeSource: true,
+      outputAsModuleFolder: true
+    });
+  });
+};
+
+plugins.push(new DtsBundlePlugin());
+
 const config = {
-  entry: __dirname + '/index.js',
+  entry: __dirname + '/src/expression.parser.ts',
   devtool: 'source-map',
   output: {
     path: __dirname + '/build',
@@ -30,8 +47,8 @@ const config = {
   module: {
     rules: [
       {
-        test: /(\.jsx|\.js)$/,
-        loader: 'babel-loader',
+        test: /(\.tsx|\.ts)$/,
+        loader: 'ts-loader',
         exclude: /(node_modules|bower_components)/
       }
     ]

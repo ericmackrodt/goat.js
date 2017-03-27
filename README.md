@@ -16,12 +16,12 @@ How to use:
 -----------
 
 ```
-import { Goat } from 'goatjs';
+import ExpressionParser from 'goatjs';
 // if you're not using node, just reference it from the window object 'goat.Goat';
 
 const obj = { property: true };
 
-const goat = new Goat('property === true', obj);
+const goat = new ExpressionParser('property === true', obj);
 const result = goat.evaluate();
 console.log(result);
 

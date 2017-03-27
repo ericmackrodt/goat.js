@@ -1,14 +1,15 @@
 {
   "name": "goatjs",
-  "version": "1.0.8",
+  "version": "1.1.0",
   "description": "Goat.js is a conditional expre-he-he-he-ssion parser",
   "main": "./build/goat.js",
-  "types": "./index.d.ts",
+  "types": "./build/goat.d.ts",
   "scripts": {
-    "test": "mocha --compilers ts:ts-node/register tests",
-    "test:watch": "mocha --compilers ts:ts-node/register tests --watch",
-    "build": "webpack --env build",
-    "dev": "webpack --progress --colors --watch --env dev"
+    "test": "cross-env mocha --compilers ts:ts-node/register tests",
+    "test:watch": "cross-env mocha --compilers ts:ts-node/register tests --watch",
+    "build": "cross-env webpack --env build",
+    "dev": "cross-env webpack --progress --colors --watch --env dev",
+    "lint": "cross-env tslint 'src/**/*.ts'"
   },
   "repository": {
     "type": "git",
@@ -25,7 +26,11 @@
     "@types/mocha": "^2.2.40",
     "@types/node": "^7.0.10",
     "chai": "^3.5.0",
+    "cross-env": "^3.2.4",
+    "dts-bundle": "^0.7.2",
     "mocha": "^3.2.0",
+    "ts-lint": "^4.5.1",
+    "ts-loader": "^2.0.3",
     "ts-node": "^3.0.2",
     "typescript": "^2.2.1",
     "webpack": "^2.2.1"
