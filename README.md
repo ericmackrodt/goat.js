@@ -1,6 +1,8 @@
 # goat.js
 Goat.js is a conditional expre-he-he-he-ssion parser.
 
+[![Build Status](https://travis-ci.org/ericmackrodt/goat.js.svg?branch=master)](https://travis-ci.org/ericmackrodt/goat.js)
+
 It takes an object with data and a string containing a conditional expression then it parses the expression and compares it to the object giving you the result.
 
 Install:
