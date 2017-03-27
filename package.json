@@ -9,7 +9,8 @@
     "test:watch": "cross-env mocha --compilers ts:ts-node/register tests --watch",
     "build": "cross-env webpack --env build",
     "dev": "cross-env webpack --progress --colors --watch --env dev",
-    "lint": "cross-env tslint 'src/**/*.ts'"
+    "lint": "cross-env tslint 'src/**/*.ts'",
+    "travis": "npm run lint && npm run test"
   },
   "repository": {
     "type": "git",
