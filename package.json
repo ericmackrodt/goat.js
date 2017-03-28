@@ -5,12 +5,12 @@
   "main": "./build/goat.js",
   "types": "./build/goat.d.ts",
   "scripts": {
-    "test": "cross-env mocha --compilers ts:ts-node/register tests",
-    "test:watch": "cross-env mocha --compilers ts:ts-node/register tests --watch",
     "build": "cross-env webpack --env build",
     "dev": "cross-env webpack --progress --colors --watch --env dev",
     "lint": "cross-env tslint 'src/**/*.ts'",
-    "travis": "npm run lint && npm run test"
+    "travis": "npm run lint && npm run test:coverage",
+    "test": "cross-env mocha",
+    "test:coverage": "cross-env nyc mocha"
   },
   "repository": {
     "type": "git",
@@ -30,10 +30,30 @@
     "cross-env": "^3.2.4",
     "dts-bundle": "^0.7.2",
     "mocha": "^3.2.0",
+    "nyc": "^10.2.0",
+    "source-map-support": "^0.4.14",
     "ts-lint": "^4.5.1",
     "ts-loader": "^2.0.3",
     "ts-node": "^3.0.2",
     "typescript": "^2.2.1",
     "webpack": "^2.2.1"
+  },
+  "nyc": {
+    "include": [
+      "src/**/*.ts"
+    ],
+    "extension": [
+      ".ts",
+      ".tsx"
+    ],
+    "require": [
+      "ts-node/register"
+    ],
+    "reporter": [
+      "text-summary",
+      "html"
+    ],
+    "sourceMap": true,
+    "instrument": true
   }
 }
