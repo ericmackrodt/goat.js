@@ -4,6 +4,7 @@
 -------
 
 - Some code refactor.
+- Add error messages for invalid expressions.
 
 1.1.0
 -------
