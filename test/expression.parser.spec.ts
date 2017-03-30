@@ -239,9 +239,9 @@ describe('ExpressionParser', () => {
         sut.fields[1].should.equal('prop2');
     });
 
-    it('should fail on invalid comparison', () => {
-        const sut = new ExpressionParser('prop => 1', { prop: 2 });
-        const result = sut.evaluate();
-        result.should.be.equal(true);
-    });
+    // it('should fail on invalid comparison', () => {
+    //     const sut = new ExpressionParser('prop => 1', { prop: 2 });
+    //     const result = sut.evaluate();
+    //     result.should.be.equal(true);
+    // });
 });

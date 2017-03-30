@@ -87,63 +87,68 @@ const getValue = (m: any, controller: IKeyValue<any>, parserToken: string): any 
     }
 };
 
+const processLogicalOperation = (operation: string, expression: any, controller: IKeyValue<any>, parserToken: string) => {
+    let index = -1;
+    let leftIndex = 0;
+    let rightIndex = 0;
+    if ((index = expression.indexOf(operation)) > -1 && 
+        (expression[leftIndex = index - 1] !== ')') &&
+        (expression[rightIndex = index + 1] !== '(')) {
+        let left = processExpression(expression[leftIndex], controller, parserToken);
+        let right = processExpression(expression[rightIndex], controller, parserToken);
+        const result = getOperation(operation, <() => boolean>left, <() => boolean>right);
+        expression[leftIndex] = result;
+        expression.splice(index, 2);
 
-const processExpression = (expression: any, controller: IKeyValue<any>, parserToken: string): () => boolean => {
-    let match;
-    if (!(expression instanceof Array)) {
-        expression = [expression];
+        return result;
     }
+};
+
+const processExplicitPrecedence = (expression: any, controller: IKeyValue<any>, parserToken: string) => {
+    let subExpression = expression;
+    const indexLeftParenthesis = expression.lastIndexOf('(');
+    if (indexLeftParenthesis > -1) {
+        subExpression = subExpression.slice(indexLeftParenthesis + 1, subExpression.length);
+        const indexRightParenthesis = subExpression.indexOf(')');
+        subExpression = subExpression.slice(0, indexRightParenthesis);
+        const expressionLength = subExpression.length;
+        const result = processExpression(subExpression, controller, parserToken);
+        expression[indexLeftParenthesis] = result;
+        expression.splice(indexLeftParenthesis + 1, expressionLength + 1);
+        return result;
+    }
+};
+
+const processEquality = (expression: any, controller: IKeyValue<any>, parserToken: string) => {
+    let match: RegExpMatchArray;
+    let operatorFunc: () => boolean;
     if (expression.length === 1 && (match = getRegexMatchArray(EQUALITY_REGEX, <string>expression[0]))) {
         const left = getValue(match[0], controller, parserToken);
         const right = getValue(match[2], controller, parserToken);
         const operation = match[1];
         if (typeof left === 'function' && !right && !operation) {
-            expression[0] = left;
+            operatorFunc = left as () => boolean;
         } else {
-            expression[0] = getOperation(match[1], left, right);
+            operatorFunc = getOperation(match[1], left, right);
         }
+
+        expression[0] = operatorFunc;
+
+        return operatorFunc;
+    }
+};
+
+const processExpression = (expression: any, controller: IKeyValue<any>, parserToken: string): () => boolean => {
+    if (!(expression instanceof Array)) {
+        expression = [expression];
     }
 
     while (expression.length > 1 || typeof expression[0] !== 'function') {
-        let index = -1;
-        let leftIndex = 0;
-        let rightIndex = 0;
-        let left: () => boolean;
-        let right: () => boolean;
-
-        let subExpression = expression;
-        const indexLeftParenthesis = expression.lastIndexOf('(');
-        if (indexLeftParenthesis > -1) {
-            subExpression = subExpression.slice(indexLeftParenthesis + 1, subExpression.length);
-            const indexRightParenthesis = subExpression.indexOf(')');
-            subExpression = subExpression.slice(0, indexRightParenthesis);
-            const expressionLength = subExpression.length;
-            expression[indexLeftParenthesis] = processExpression(subExpression, controller, parserToken);
-            expression.splice(indexLeftParenthesis + 1, expressionLength + 1);
-
-            continue;
-        }
-
-        if ((index = expression.indexOf('&&')) > -1 && 
-            (expression[leftIndex = index - 1] !== ')') &&
-            (expression[rightIndex = index + 1] !== '(')) {
-            left = processExpression(expression[leftIndex], controller, parserToken);
-            right = processExpression(expression[rightIndex], controller, parserToken);
-            expression[leftIndex] = getOperation('&&', <() => boolean>left, <() => boolean>right);
-            expression.splice(index, 2);
-
-            continue;
-        } else if ((index = expression.indexOf('||')) > -1 &&
-            (expression[leftIndex = index - 1] !== ')') &&
-            (expression[rightIndex = index + 1] !== '(')) {
-            left = processExpression(expression[leftIndex], controller, parserToken);
-            right = processExpression(expression[rightIndex], controller, parserToken);
-            expression[leftIndex] = getOperation('||', <() => boolean>left, <() => boolean>right);
-            expression.splice(index, 2);
-
-            continue;
-        }
-
+        if (processEquality(expression, controller, parserToken)) continue;
+        if (processExplicitPrecedence(expression, controller, parserToken)) continue;
+        if (processLogicalOperation('&&', expression, controller, parserToken)) continue;
+        if (processLogicalOperation('||', expression, controller, parserToken)) continue;
+        
         break;
     }
 
