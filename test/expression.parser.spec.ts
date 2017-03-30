@@ -2,6 +2,7 @@ import ExpressionParser from './../src/expression.parser';
 import * as chai from 'chai';
 
 const should = chai.should();
+const expect = chai.expect;
 
 describe('ExpressionParser', () => {
 
@@ -239,9 +240,13 @@ describe('ExpressionParser', () => {
         sut.fields[1].should.equal('prop2');
     });
 
-    // it('should fail on invalid comparison', () => {
-    //     const sut = new ExpressionParser('prop => 1', { prop: 2 });
-    //     const result = sut.evaluate();
-    //     result.should.be.equal(true);
+    it('should throw on invalid comparison', () => {
+        const sut = new ExpressionParser('prop => 1', { prop: 2 });
+        expect(() => sut.evaluate()).to.throw('Operator => is not valid');
+    });
+
+    // it('should throw on invalid logical operator', () => {
+    //     const sut = new ExpressionParser('prop === 1 |& prop2 === 2', { prop: 1, prop2: 2 });
+    //     expect(() => sut.evaluate()).to.throw('Operator |& is not valid');
     // });
 });

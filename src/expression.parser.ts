@@ -1,11 +1,12 @@
 const EQUALITY_REGEX = /^\s*([!\w\.]+)\s*([^\w\s|&]{1,3})?\s*([^\sˆ&|\\=)]+)?\s*$/;
-const EXPRESSION_REGEX = /([&|]{2})|([\(\)])|([!\w\.]+)\s*([^\w\s|&]{1,3})?\s*([^\sˆ&|\)]+)?/g;
 const STRING_REGEX = /^['"](.*)['"]$/;
 const NOT_REGEX = /^\s*([!]+)\s*(\w+)\s*$/;
 const LOGICAL_OPERATORS = ['&&', '||'];
 const RELATIONAL_OPERATORS = ['==', '!=', '===', '!==', '!', '>=', '<=', '>', '<'];
 
-type Operatee = string | (() => boolean);
+type Evaluator = () => boolean;
+type Operatee = string | Evaluator;
+type Expression = RegExpMatchArray | Array<Operatee> | string | Evaluator;
 
 interface IKeyValue<T> {
     [key: string]: T;
@@ -17,13 +18,17 @@ interface IKeyFunction extends IKeyValue<() => boolean> {
 const fieldsCache: IKeyValue<string[]> = {};
 
 const isBoolean = (value: string) => ['true', 'false'].indexOf(value) > -1;
+const isFunction = (o: any) => typeof o === 'function';
 
 const generateRandomKey = () => Math.floor((1 + Math.random()) * 0x100000000000000).toString(16).substring(1);
 
 const matchExpression = (expression: string) => 
     expression.match(/([&|]{2})|([\(\)])|([!\w\.]+)\s*([^\w\s|&]{1,3})?\s*([^\sˆ&|\)]+)?/g);
 
-const asFunction = (val: any) => typeof val === 'function' ? val() : val;
+const asFunction = (val: any) => isFunction(val) ? val() : val;
+
+const setFirstInExpression = (expression: Expression, value: Operatee) => (expression as Array<Operatee>)[0] = value;
+const getFirstInExpression = (expression: Expression) => <string>(expression as Array<Operatee>)[0];
 
 const getRegexMatchArray = (regex: RegExp, input: string) => {
     let match: string[] = regex.exec(input) || [];
@@ -34,6 +39,7 @@ const getRegexMatchArray = (regex: RegExp, input: string) => {
 };
 
 const throwError = (...msg: string[]) => { throw new Error(msg.join('')); };
+const throwInvalidOperationError = (operator: string) => throwError(`Operator ${operator} is not valid`);
 
 const getOperation = (operation: string, left: Operatee, right?: Operatee) => (<IKeyFunction>{
     '==': () => asFunction(left) == asFunction(right),
@@ -97,6 +103,7 @@ const processLogicalOperation = (operation: string, expression: any, controller:
         let left = processExpression(expression[leftIndex], controller, parserToken);
         let right = processExpression(expression[rightIndex], controller, parserToken);
         const result = getOperation(operation, <() => boolean>left, <() => boolean>right);
+        if (!result) throwInvalidOperationError(operation);
         expression[leftIndex] = result;
         expression.splice(index, 2);
 
@@ -119,31 +126,33 @@ const processExplicitPrecedence = (expression: any, controller: IKeyValue<any>, 
     }
 };
 
-const processEquality = (expression: any, controller: IKeyValue<any>, parserToken: string) => {
+const processEquality = (expression: Expression, controller: IKeyValue<any>, parserToken: string) => {
     let match: RegExpMatchArray;
-    let operatorFunc: () => boolean;
-    if (expression.length === 1 && (match = getRegexMatchArray(EQUALITY_REGEX, <string>expression[0]))) {
+    let operatorFunc: Evaluator;
+    if (expression.length === 1 && (match = getRegexMatchArray(EQUALITY_REGEX, getFirstInExpression(expression)))) {
         const left = getValue(match[0], controller, parserToken);
         const right = getValue(match[2], controller, parserToken);
         const operation = match[1];
-        if (typeof left === 'function' && !right && !operation) {
+        if (isFunction(left) && !right && !operation) {
             operatorFunc = left as () => boolean;
         } else {
             operatorFunc = getOperation(match[1], left, right);
         }
 
-        expression[0] = operatorFunc;
+        if (!operatorFunc) throwInvalidOperationError(match[1]);
+
+        setFirstInExpression(expression, operatorFunc);
 
         return operatorFunc;
     }
 };
 
-const processExpression = (expression: any, controller: IKeyValue<any>, parserToken: string): () => boolean => {
+const processExpression = (expression: Expression, controller: IKeyValue<any>, parserToken: string): Evaluator => {
     if (!(expression instanceof Array)) {
         expression = [expression];
     }
 
-    while (expression.length > 1 || typeof expression[0] !== 'function') {
+    while (expression.length > 1 || !isFunction(expression[0])) {
         if (processEquality(expression, controller, parserToken)) continue;
         if (processExplicitPrecedence(expression, controller, parserToken)) continue;
         if (processLogicalOperation('&&', expression, controller, parserToken)) continue;
@@ -152,8 +161,8 @@ const processExpression = (expression: any, controller: IKeyValue<any>, parserTo
         break;
     }
 
-    if (expression.length === 1) {
-        return expression[0];
+    if (expression.length === 1 && isFunction(expression[0])) {
+        return <Evaluator>expression[0];
     };
 };
 
