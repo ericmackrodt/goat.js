@@ -1,6 +1,6 @@
 {
   "name": "goatjs",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Goat.js is a conditional expre-he-he-he-ssion parser",
   "main": "./build/goat.js",
   "types": "./build/goat.d.ts",

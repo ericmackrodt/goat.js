@@ -33,15 +33,15 @@ const getRegexMatchArray = (regex: RegExp, input: string) => {
     return match;
 };
 
+const throwError = (...msg: string[]) => { throw new Error(msg.join('')); };
+
 const getOperation = (operation: string, left: Operatee, right?: Operatee) => (<IKeyFunction>{
     '==': () => asFunction(left) == asFunction(right),
     '!=': () => asFunction(left) != asFunction(right),
     '===': () => asFunction(left) === asFunction(right),
     '!==': () => asFunction(left) !== asFunction(right),
     '<=': () => asFunction(left) <= asFunction(right),
-    '=<': () => asFunction(left) <= asFunction(right),
     '>=': () => asFunction(left) >= asFunction(right),
-    '=>': () => asFunction(left) >= asFunction(right),
     '<': () => asFunction(left) < asFunction(right),
     '>': () => asFunction(left) > asFunction(right),
     '&&': () => asFunction(left) && asFunction(right),
@@ -87,6 +87,7 @@ const getValue = (m: any, controller: IKeyValue<any>, parserToken: string): any 
     }
 };
 
+
 const processExpression = (expression: any, controller: IKeyValue<any>, parserToken: string): () => boolean => {
     let match;
     if (!(expression instanceof Array)) {
@@ -122,7 +123,6 @@ const processExpression = (expression: any, controller: IKeyValue<any>, parserTo
 
             continue;
         }
-
 
         if ((index = expression.indexOf('&&')) > -1 && 
             (expression[leftIndex = index - 1] !== ')') &&

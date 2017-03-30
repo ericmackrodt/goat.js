@@ -1,5 +1,10 @@
 # Changelog
 
+1.2.0
+-------
+
+- Some code refactor.
+
 1.1.0
 -------
 
