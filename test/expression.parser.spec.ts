@@ -245,8 +245,14 @@ describe('ExpressionParser', () => {
         expect(() => sut.evaluate()).to.throw('Operator => is not valid');
     });
 
-    // it('should throw on invalid logical operator', () => {
-    //     const sut = new ExpressionParser('prop === 1 |& prop2 === 2', { prop: 1, prop2: 2 });
-    //     expect(() => sut.evaluate()).to.throw('Operator |& is not valid');
+    it('should throw on invalid logical operator', () => {
+        const sut = new ExpressionParser('prop === 1 |& prop2 === 2', { prop: 1, prop2: 2 });
+        expect(() => sut.evaluate()).to.throw('Invalid logical operator [|&]');
+    });
+
+    // it('should throw error if no logical operator', () => {
+    //     debugger;
+    //     const sut = new ExpressionParser('prop === 1 prop2 === 2', { prop: 1, prop2: 2 });
+    //     expect(() => sut.evaluate()).to.throw('Invalid logical operator [|&]d');
     // });
 });

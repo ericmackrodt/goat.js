@@ -31,6 +31,8 @@ const fieldsCache: IKeyValue<string[]> = {};
 
 const isBoolean = (value: string) => ['true', 'false'].indexOf(value) > -1;
 const isFunction = (o: any) => typeof o === 'function';
+const includes = <T>(o: T[], value: T) => o.indexOf(value) > -1;
+const getMiddleItem = (expression: Expression) => expression[Math.round((expression.length - 1) / 2)];
 
 const matchExpression = (expression: string) => 
     expression.match(/([&|]{2})|([\(\)])|([!\w\.]+)\s*([^\w\s|&]{1,3})?\s*([^\sˆ&|\)]+)?/g);
@@ -165,6 +167,10 @@ const processEquality = (expression: Expression, controller: IKeyValue<any>, par
 const processExpression = (expression: Expression, controller: IKeyValue<any>, parserToken: string): Expression => {
     if (!(expression instanceof Array)) {
         expression = [expression];
+    }
+
+    if (expression.length === 3 && !includes(LOGICAL_OPERATORS, getMiddleItem(expression))) {
+        throwError(`Invalid logical operator [${<string>getMiddleItem(expression)}]`);
     }
 
     untilTruthy(
