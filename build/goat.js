@@ -73,7 +73,7 @@ return /******/ (function(modules) { // webpackBootstrap
 /******/ 	__webpack_require__.p = "";
 /******/
 /******/ 	// Load entry module and return exports
-/******/ 	return __webpack_require__(__webpack_require__.s = 0);
+/******/ 	return __webpack_require__(__webpack_require__.s = 1);
 /******/ })
 /************************************************************************/
 /******/ ([
@@ -81,21 +81,28 @@ return /******/ (function(modules) { // webpackBootstrap
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
+/* Constants
+----------------------------------------------------------------*/
 
 Object.defineProperty(exports, "__esModule", { value: true });
 var EQUALITY_REGEX = /^\s*([!\w\.]+)\s*([^\w\s|&]{1,3})?\s*([^\sˆ&|\\=)]+)?\s*$/;
-var EXPRESSION_REGEX = /([&|]{2})|([\(\)])|([!\w\.]+)\s*([^\w\s|&]{1,3})?\s*([^\sˆ&|\)]+)?/g;
 var STRING_REGEX = /^['"](.*)['"]$/;
 var NOT_REGEX = /^\s*([!]+)\s*(\w+)\s*$/;
 var LOGICAL_OPERATORS = ['&&', '||'];
 var RELATIONAL_OPERATORS = ['==', '!=', '===', '!==', '!', '>=', '<=', '>', '<'];
+/* Cache Variables
+----------------------------------------------------------------*/
 var fieldsCache = {};
+/* Support Functions
+----------------------------------------------------------------*/
 var isBoolean = function (value) { return ['true', 'false'].indexOf(value) > -1; };
-var generateRandomKey = function () { return Math.floor((1 + Math.random()) * 0x100000000000000).toString(16).substring(1); };
+var isFunction = function (o) { return typeof o === 'function'; };
 var matchExpression = function (expression) {
     return expression.match(/([&|]{2})|([\(\)])|([!\w\.]+)\s*([^\w\s|&]{1,3})?\s*([^\sˆ&|\)]+)?/g);
 };
-var asFunction = function (val) { return typeof val === 'function' ? val() : val; };
+var asFunction = function (val) { return isFunction(val) ? val() : val; };
+var setFirstInExpression = function (expression, value) { return expression[0] = value; };
+var getFirstInExpression = function (expression) { return expression[0]; };
 var getRegexMatchArray = function (regex, input) {
     var match = regex.exec(input) || [];
     if (match.length === 0)
@@ -104,15 +111,21 @@ var getRegexMatchArray = function (regex, input) {
     match.shift();
     return match;
 };
+var throwError = function () {
+    var msg = [];
+    for (var _i = 0; _i < arguments.length; _i++) {
+        msg[_i] = arguments[_i];
+    }
+    throw new Error(msg.join(''));
+};
+var throwInvalidOperationError = function (operator) { return throwError("Operator " + operator + " is not valid"); };
 var getOperation = function (operation, left, right) { return {
     '==': function () { return asFunction(left) == asFunction(right); },
     '!=': function () { return asFunction(left) != asFunction(right); },
     '===': function () { return asFunction(left) === asFunction(right); },
     '!==': function () { return asFunction(left) !== asFunction(right); },
     '<=': function () { return asFunction(left) <= asFunction(right); },
-    '=<': function () { return asFunction(left) <= asFunction(right); },
     '>=': function () { return asFunction(left) >= asFunction(right); },
-    '=>': function () { return asFunction(left) >= asFunction(right); },
     '<': function () { return asFunction(left) < asFunction(right); },
     '>': function () { return asFunction(left) > asFunction(right); },
     '&&': function () { return asFunction(left) && asFunction(right); },
@@ -134,6 +147,15 @@ var setField = function (field, parserToken) {
     }
     cache.push(field);
 };
+var untilTruthy = function () {
+    var fns = [];
+    for (var _i = 0; _i < arguments.length; _i++) {
+        fns[_i] = arguments[_i];
+    }
+    return fns.every(function (fn) { return !fn(); });
+};
+/* Processing Functions
+----------------------------------------------------------------*/
 var getValue = function (m, controller, parserToken) {
     var match;
     if ((match = getRegexMatchArray(NOT_REGEX, m))) {
@@ -157,68 +179,92 @@ var getValue = function (m, controller, parserToken) {
         return m;
     }
 };
-var processExpression = function (expression, controller, parserToken) {
-    var match;
-    if (!(expression instanceof Array)) {
-        expression = [expression];
+var processLogicalOperation = function (operation, expression, controller, parserToken) {
+    var index = -1;
+    var leftIndex = 0;
+    var rightIndex = 0;
+    if ((index = expression.indexOf(operation)) > -1 &&
+        (expression[leftIndex = index - 1] !== ')') &&
+        (expression[rightIndex = index + 1] !== '(')) {
+        var left = processExpression(expression[leftIndex], controller, parserToken);
+        var right = processExpression(expression[rightIndex], controller, parserToken);
+        var result = getOperation(operation, getFirstInExpression(left), getFirstInExpression(right));
+        if (!result)
+            throwInvalidOperationError(operation);
+        expression[leftIndex] = result;
+        expression.splice(index, 2);
+        return result;
     }
-    if (expression.length === 1 && (match = getRegexMatchArray(EQUALITY_REGEX, expression[0]))) {
+};
+var processExplicitPrecedence = function (expression, controller, parserToken) {
+    var subExpression = expression;
+    var indexLeftParenthesis = expression.lastIndexOf('(');
+    if (indexLeftParenthesis > -1) {
+        subExpression = subExpression.slice(indexLeftParenthesis + 1, subExpression.length);
+        var indexRightParenthesis = subExpression.indexOf(')');
+        subExpression = subExpression.slice(0, indexRightParenthesis);
+        var expressionLength = subExpression.length;
+        var result = processExpression(subExpression, controller, parserToken);
+        expression[indexLeftParenthesis] = result;
+        expression.splice(indexLeftParenthesis + 1, expressionLength + 1);
+        return result;
+    }
+};
+var processEquality = function (expression, controller, parserToken) {
+    var match;
+    var operatorFunc;
+    if (expression.length === 1 && (match = getRegexMatchArray(EQUALITY_REGEX, getFirstInExpression(expression)))) {
         var left = getValue(match[0], controller, parserToken);
         var right = getValue(match[2], controller, parserToken);
         var operation = match[1];
-        if (typeof left === 'function' && !right && !operation) {
-            expression[0] = left;
+        if (isFunction(left) && !right && !operation) {
+            operatorFunc = left;
         }
         else {
-            expression[0] = getOperation(match[1], left, right);
+            operatorFunc = getOperation(match[1], left, right);
         }
+        if (!operatorFunc)
+            throwInvalidOperationError(match[1]);
+        setFirstInExpression(expression, operatorFunc);
+        return operatorFunc;
     }
-    while (expression.length > 1 || typeof expression[0] !== 'function') {
-        var index = -1;
-        var leftIndex = 0;
-        var rightIndex = 0;
-        var left = void 0;
-        var right = void 0;
-        var subExpression = expression;
-        var indexLeftParenthesis = expression.lastIndexOf('(');
-        if (indexLeftParenthesis > -1) {
-            subExpression = subExpression.slice(indexLeftParenthesis + 1, subExpression.length);
-            var indexRightParenthesis = subExpression.indexOf(')');
-            subExpression = subExpression.slice(0, indexRightParenthesis);
-            var expressionLength = subExpression.length;
-            expression[indexLeftParenthesis] = processExpression(subExpression, controller, parserToken);
-            expression.splice(indexLeftParenthesis + 1, expressionLength + 1);
-            continue;
-        }
-        if ((index = expression.indexOf('&&')) > -1 &&
-            (expression[leftIndex = index - 1] !== ')') &&
-            (expression[rightIndex = index + 1] !== '(')) {
-            left = processExpression(expression[leftIndex], controller, parserToken);
-            right = processExpression(expression[rightIndex], controller, parserToken);
-            expression[leftIndex] = getOperation('&&', left, right);
-            expression.splice(index, 2);
-            continue;
-        }
-        else if ((index = expression.indexOf('||')) > -1 &&
-            (expression[leftIndex = index - 1] !== ')') &&
-            (expression[rightIndex = index + 1] !== '(')) {
-            left = processExpression(expression[leftIndex], controller, parserToken);
-            right = processExpression(expression[rightIndex], controller, parserToken);
-            expression[leftIndex] = getOperation('||', left, right);
-            expression.splice(index, 2);
-            continue;
-        }
-        break;
+};
+var processExpression = function (expression, controller, parserToken) {
+    if (!(expression instanceof Array)) {
+        expression = [expression];
     }
-    if (expression.length === 1) {
-        return expression[0];
+    untilTruthy(function () { return processEquality(expression, controller, parserToken); }, function () { return processExplicitPrecedence(expression, controller, parserToken); }, function () { return processLogicalOperation('&&', expression, controller, parserToken); }, function () { return processLogicalOperation('||', expression, controller, parserToken); });
+    if (expression.length > 1 || !isFunction(expression[0])) {
+        return processExpression(expression, controller, parserToken);
+    }
+    else {
+        return expression;
+    }
+};
+/* Exported Functions
+----------------------------------------------------------------*/
+exports.getFields = function (token) { return fieldsCache[token]; };
+exports.deleteFromCache = function (token) { return delete fieldsCache[token]; };
+exports.generateRandomKey = function () { return Math.floor((1 + Math.random()) * 0x100000000000000).toString(16).substring(1); };
+exports.buildEvaluator = function (expression, controller, parserToken) {
+    var match = matchExpression(expression) || [];
+    var result = processExpression(match, controller, parserToken);
+    var evaluator = getFirstInExpression(result);
+    if (result.length === 1 && isFunction(evaluator)) {
+        return evaluator;
     }
     ;
 };
-var buildEvaluator = function (expression, controller, parserToken) {
-    var match = matchExpression(expression) || [];
-    return processExpression(match, controller, parserToken);
-};
+
+
+/***/ }),
+/* 1 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+var evaluation_builder_1 = __webpack_require__(0);
 /**
  * Expression parser class
  */
@@ -231,7 +277,7 @@ var default_1 = (function () {
     function default_1(_expression, _controller) {
         this._expression = _expression;
         this._controller = _controller;
-        this._parserToken = generateRandomKey();
+        this._parserToken = evaluation_builder_1.generateRandomKey();
     }
     Object.defineProperty(default_1.prototype, "fields", {
         /**
@@ -249,9 +295,9 @@ var default_1 = (function () {
      */
     default_1.prototype.evaluate = function () {
         if (!this._evaluator) {
-            this._evaluator = buildEvaluator(this._expression, this._controller, this._parserToken);
-            this._fields = fieldsCache[this._parserToken];
-            delete fieldsCache[this._parserToken];
+            this._evaluator = evaluation_builder_1.buildEvaluator(this._expression, this._controller, this._parserToken);
+            this._fields = evaluation_builder_1.getFields(this._parserToken);
+            evaluation_builder_1.deleteFromCache(this._parserToken);
         }
         return this._evaluator();
     };

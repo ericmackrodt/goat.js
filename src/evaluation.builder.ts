@@ -12,7 +12,7 @@ const RELATIONAL_OPERATORS = ['==', '!=', '===', '!==', '!', '>=', '<=', '>', '<
 
 type Evaluator = () => boolean;
 type Operatee = string | Evaluator;
-type Expression = RegExpMatchArray | Array<Operatee> | string | Evaluator;
+type Expression = RegExpMatchArray | Array<Operatee>;
 
 export interface IKeyValue<T> {
     [key: string]: T;
@@ -38,7 +38,7 @@ const matchExpression = (expression: string) =>
 const asFunction = (val: any) => isFunction(val) ? val() : val;
 
 const setFirstInExpression = (expression: Expression, value: Operatee) => (expression as Array<Operatee>)[0] = value;
-const getFirstInExpression = (expression: Expression) => <string>(expression as Array<Operatee>)[0];
+const getFirstInExpression = <T extends Operatee>(expression: Expression) => <T>(expression as Array<Operatee>)[0];
 
 const getRegexMatchArray = (regex: RegExp, input: string) => {
     let match: string[] = regex.exec(input) || [];
@@ -84,6 +84,8 @@ const setField = (field: string, parserToken: string) => {
     cache.push(field);
 };
 
+const untilTruthy = (...fns: Function[]) => fns.every((fn) => !fn());
+
 /* Processing Functions
 ----------------------------------------------------------------*/
 
@@ -115,7 +117,7 @@ const processLogicalOperation = (operation: string, expression: any, controller:
         (expression[rightIndex = index + 1] !== '(')) {
         let left = processExpression(expression[leftIndex], controller, parserToken);
         let right = processExpression(expression[rightIndex], controller, parserToken);
-        const result = getOperation(operation, <() => boolean>left, <() => boolean>right);
+        const result = getOperation(operation, getFirstInExpression(left), getFirstInExpression(right));
         if (!result) throwInvalidOperationError(operation);
         expression[leftIndex] = result;
         expression.splice(index, 2);
@@ -142,7 +144,7 @@ const processExplicitPrecedence = (expression: any, controller: IKeyValue<any>, 
 const processEquality = (expression: Expression, controller: IKeyValue<any>, parserToken: string) => {
     let match: RegExpMatchArray;
     let operatorFunc: Evaluator;
-    if (expression.length === 1 && (match = getRegexMatchArray(EQUALITY_REGEX, getFirstInExpression(expression)))) {
+    if (expression.length === 1 && (match = getRegexMatchArray(EQUALITY_REGEX, getFirstInExpression<string>(expression)))) {
         const left = getValue(match[0], controller, parserToken);
         const right = getValue(match[2], controller, parserToken);
         const operation = match[1];
@@ -160,23 +162,23 @@ const processEquality = (expression: Expression, controller: IKeyValue<any>, par
     }
 };
 
-const processExpression = (expression: Expression, controller: IKeyValue<any>, parserToken: string): Evaluator => {
+const processExpression = (expression: Expression, controller: IKeyValue<any>, parserToken: string): Expression => {
     if (!(expression instanceof Array)) {
         expression = [expression];
     }
 
-    while (expression.length > 1 || !isFunction(expression[0])) {
-        if (processEquality(expression, controller, parserToken)) continue;
-        if (processExplicitPrecedence(expression, controller, parserToken)) continue;
-        if (processLogicalOperation('&&', expression, controller, parserToken)) continue;
-        if (processLogicalOperation('||', expression, controller, parserToken)) continue;
-        
-        break;
-    }
+    untilTruthy(
+        () => processEquality(expression, controller, parserToken),
+        () => processExplicitPrecedence(expression, controller, parserToken),
+        () => processLogicalOperation('&&', expression, controller, parserToken),
+        () => processLogicalOperation('||', expression, controller, parserToken)
+    );
 
-    if (expression.length === 1 && isFunction(expression[0])) {
-        return <Evaluator>expression[0];
-    };
+    if (expression.length > 1 || !isFunction(expression[0])) {
+        return processExpression(expression, controller, parserToken);
+    } else {
+        return expression;
+    }
 };
 
 /* Exported Functions
@@ -187,7 +189,12 @@ export const deleteFromCache = (token: string) => delete fieldsCache[token];
 
 export const generateRandomKey = () => Math.floor((1 + Math.random()) * 0x100000000000000).toString(16).substring(1);
 
-export const buildEvaluator = (expression: string, controller: IKeyValue<any>, parserToken: string) => {
+export const buildEvaluator = (expression: string, controller: IKeyValue<any>, parserToken: string): Evaluator => {
     const match = matchExpression(expression) || [];
-    return processExpression(match, controller, parserToken);
+    const result = processExpression(match, controller, parserToken);
+
+    const evaluator = getFirstInExpression<Evaluator>(result);
+    if (result.length === 1 && isFunction(evaluator)) {
+        return evaluator;
+    };
 };
