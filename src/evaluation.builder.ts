@@ -118,7 +118,7 @@ const processOperand = (m: any, controller: IKeyValue<any>, parserToken: string)
     } else if (!isNaN(m)) {
         return parseInt(m);
     } else if ((match = STRING_REGEX.exec(m))) {
-        return match[1];
+        return getMiddleItem(match);
     }
     
     throwInvalidExpressionError(parserToken);
@@ -134,7 +134,6 @@ const processLogicalOperation = (operation: string, expression: any, controller:
         let left = processExpression(expression[leftIndex], controller, parserToken);
         let right = processExpression(expression[rightIndex], controller, parserToken);
         const result = getOperation(operation, getFirstInExpression(left), getFirstInExpression(right));
-        if (!result) throwInvalidOperationError(operation, parserToken);
         expression[leftIndex] = result;
         expression.splice(index, 2);
 
@@ -196,7 +195,7 @@ const processExpression = (expression: Expression, controller: IKeyValue<any>, p
         () => processExplicitPrecedence(expression, controller, parserToken),
         () => processLogicalOperation('&&', expression, controller, parserToken),
         () => processLogicalOperation('||', expression, controller, parserToken)
-    ) && expression.length === 1 && !isFunction(getFirstInExpression(expression))) {
+    ) && (expression.length % 2) === 1 && !isFunction(getFirstInExpression(expression))) {
         throwInvalidExpressionError(parserToken);
     }
 
@@ -226,8 +225,5 @@ export const buildEvaluator = (expression: string, controller: IKeyValue<any>, p
 
     const result = processExpression(match, controller, parserToken);
 
-    const evaluator = getFirstInExpression<Evaluator>(result);
-    if (result.length === 1 && isFunction(evaluator)) {
-        return evaluator;
-    };
+    return getFirstInExpression<Evaluator>(result);
 };

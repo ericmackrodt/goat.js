@@ -250,6 +250,36 @@ describe('ExpressionParser', () => {
         expect(() => sut.evaluate()).to.throw('Invalid logical operator [|&] in expression [prop === 1 |& prop2 === 2]');
     });
 
+    it('should throw on invalid first operator with logical operators', () => {
+        const sut = new ExpressionParser('prop === 1 |& prop2 === 2 || prop3 === 3', { prop: 1, prop2: 2, prop3: 3 });
+        expect(() => sut.evaluate()).to.throw('Invalid logical operator [|&] in expression [prop === 1 |& prop2 === 2 || prop3 === 3]');
+    });
+
+    it('should throw on invalid second operator with logical operators', () => {
+        const sut = new ExpressionParser('prop === 1 || prop2 === 2 |& prop3 === 3', { prop: 1, prop2: 2, prop3: 3 });
+        expect(() => sut.evaluate()).to.throw('Invalid logical operator [|&] in expression [prop === 1 || prop2 === 2 |& prop3 === 3]');
+    });
+
+    it('should throw on invalid first operator with logical operators with precedence', () => {
+        const sut = new ExpressionParser('(prop === 1 |& prop2 === 2) || prop3 === 3', { prop: 1, prop2: 2, prop3: 3 });
+        expect(() => sut.evaluate()).to.throw('Invalid logical operator [|&] in expression [(prop === 1 |& prop2 === 2) || prop3 === 3]');
+    });
+
+    it('should throw on invalid second operator with logical operators with precedence', () => {
+        const sut = new ExpressionParser('prop === 1 || (prop2 === 2 |& prop3 === 3)', { prop: 1, prop2: 2, prop3: 3 });
+        expect(() => sut.evaluate()).to.throw('Invalid logical operator [|&] in expression [prop === 1 || (prop2 === 2 |& prop3 === 3)]');
+    });
+
+    it('should throw on multiple invalid logical operators with precedence on beginning', () => {
+        const sut = new ExpressionParser('(prop === 1 |& prop2 === 2) |& prop3 === 3', { prop: 1, prop2: 2, prop3: 3 });
+        expect(() => sut.evaluate()).to.throw('Invalid logical operator [|&] in expression [(prop === 1 |& prop2 === 2) |& prop3 === 3]');
+    });
+
+    it('should throw on multiple invalid logical operators with precedence on end', () => {
+        const sut = new ExpressionParser('prop === 1 |& (prop2 === 2 |& prop3 === 3)', { prop: 1, prop2: 2, prop3: 3 });
+        expect(() => sut.evaluate()).to.throw('Invalid logical operator [|&] in expression [prop === 1 |& (prop2 === 2 |& prop3 === 3)]');
+    });
+
     function executeInvalidExpressionTests(tests: string[]) {
         tests.forEach((t, i) => {
             it(`should throw error when invalid expression [${t}]. (index: ${i})`, () => {
@@ -260,6 +290,7 @@ describe('ExpressionParser', () => {
     }
     
     executeInvalidExpressionTests([
+        '',
         'prop === 1 prop2 === 2',
         'prop1 === 1 prop',
         'prop1 false',
@@ -267,6 +298,8 @@ describe('ExpressionParser', () => {
         'prop1, === 1',
         '&& prop1 === 1',
         'prop1 === 1 ||',
+        'prop === 1 |& prop2 === 2 |& prop3 === 3',
+        'prop === 1 |& prop2 === 2 |& prop3 === 3 |& prop4 === 4',
         'prop1 === false && (prop2 === true || prop3 === true',
         'prop1 === false && prop2 === true || prop3 === true)',
         '(prop1 === false && (prop2 === true || prop3 === true)',
