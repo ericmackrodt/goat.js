@@ -197,6 +197,11 @@ export const generateRandomKey = () => Math.floor((1 + Math.random()) * 0x100000
 
 export const buildEvaluator = (expression: string, controller: IKeyValue<any>, parserToken: string): Evaluator => {
     const match = matchExpression(expression) || [];
+    
+    if (match.length % 2 === 0) {
+        throwError(`Invalid expression [${expression}]`);
+    }
+
     const result = processExpression(match, controller, parserToken);
 
     const evaluator = getFirstInExpression<Evaluator>(result);

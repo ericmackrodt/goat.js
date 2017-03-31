@@ -6,7 +6,7 @@ const expect = chai.expect;
 
 describe('ExpressionParser', () => {
 
-    function execute(tests: { expression: string, obj: { [key: string]: any }, expect: boolean }[]) {
+    function executeValidExpressionTests(tests: { expression: string, obj: { [key: string]: any }, expect: boolean }[]) {
         tests.forEach((t, i) => {
             it(`should be [${t.expect}] when [${t.expression}]. (index: ${i})`, () => {
                 const sut = new ExpressionParser(t.expression, t.obj);
@@ -16,7 +16,7 @@ describe('ExpressionParser', () => {
         });
     }
 
-    execute([
+    executeValidExpressionTests([
         { expression: 'prop === true', obj: { prop: true }, expect: true },
         { expression: 'prop === true', obj: { prop: false }, expect: false },
         { expression: 'prop === false', obj: { prop: false }, expect: true },
@@ -251,8 +251,34 @@ describe('ExpressionParser', () => {
     });
 
     // it('should throw error if no logical operator', () => {
-    //     debugger;
-    //     const sut = new ExpressionParser('prop === 1 prop2 === 2', { prop: 1, prop2: 2 });
-    //     expect(() => sut.evaluate()).to.throw('Invalid logical operator [|&]d');
+    //     const sut = new ExpressionParser(, { prop: 1, prop2: 2 });
+    //     expect(() => sut.evaluate()).to.throw('Invalid expression [prop === 1 prop2 === 2]');
     // });
+
+    function executeInvalidExpressionTests(tests: string[]) {
+        tests.forEach((t, i) => {
+            it(`should throw error when invalid expression [${t}]. (index: ${i})`, () => {
+                
+                const sut = new ExpressionParser(t, {});
+                expect(() => sut.evaluate()).to.throw(`Invalid expression [${t}]`);
+            });
+        });
+    }
+
+    // ^\s*([!\w\.]+)\s*$|^\s*([!\w\.]+)\s*([^'"\w\s|&]{1,3})\s*([^\sˆ&|\\=)]+)\s*$
+    executeInvalidExpressionTests([
+        'prop === 1 prop2 === 2',
+        'prop1 === 1 prop',
+        // 'prop1 false',
+        // 'prop1 === 1,',
+        '&& prop1 === 1',
+        'prop1 === 1 ||',
+        'prop1 === false && (prop2 === true || prop3 === true',
+        'prop1 === false && prop2 === true || prop3 === true)',
+        '(prop1 === false && (prop2 === true || prop3 === true)',
+        '(prop1 === false && (prop2 === true || prop3 === true)))',
+        'prop1 === false && (prop2 === true | prop3 === true)',
+        'prop1 === false & (prop2 === true || prop3 === true)',
+        // 'prop1 false && (prop2 === true || prop3 === true)'
+    ]);
 });
