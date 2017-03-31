@@ -1,7 +1,7 @@
 /* Constants
 ----------------------------------------------------------------*/
 
-const EQUALITY_REGEX = /^\s*([!\w\.]+)\s*([^\w\s|&]{1,3})?\s*([^\sˆ&|\\=)]+)?\s*$/;
+const EQUALITY_REGEX = /^\s*([!\w\.]+)\s*$|^\s*([!\w\.]+)\s*([^'"\w\s|&]{1,3})\s*([^\sˆ&|\\=)]+)\s*$/;
 const STRING_REGEX = /^['"](.*)['"]$/;
 const NOT_REGEX = /^\s*([!]+)\s*(\w+)\s*$/;
 const LOGICAL_OPERATORS = ['&&', '||'];
@@ -11,8 +11,8 @@ const RELATIONAL_OPERATORS = ['==', '!=', '===', '!==', '!', '>=', '<=', '>', '<
 ----------------------------------------------------------------*/
 
 type Evaluator = () => boolean;
-type Operatee = string | Evaluator;
-type Expression = RegExpMatchArray | Array<Operatee>;
+type Operand = string | Evaluator;
+type Expression = RegExpMatchArray | Array<Operand>;
 
 export interface IKeyValue<T> {
     [key: string]: T;
@@ -21,10 +21,15 @@ export interface IKeyValue<T> {
 export interface IKeyFunction extends IKeyValue<() => boolean> {
 }
 
+export interface IExpressionCache { 
+    fields?: string[];
+    expression: string;
+}
+
 /* Cache Variables
 ----------------------------------------------------------------*/
 
-const fieldsCache: IKeyValue<string[]> = {};
+const expressionCache: IKeyValue<IExpressionCache> = {};
 
 /* Support Functions
 ----------------------------------------------------------------*/
@@ -39,8 +44,8 @@ const matchExpression = (expression: string) =>
 
 const asFunction = (val: any) => isFunction(val) ? val() : val;
 
-const setFirstInExpression = (expression: Expression, value: Operatee) => (expression as Array<Operatee>)[0] = value;
-const getFirstInExpression = <T extends Operatee>(expression: Expression) => <T>(expression as Array<Operatee>)[0];
+const setFirstInExpression = (expression: Expression, value: Operand) => (expression as Array<Operand>)[0] = value;
+const getFirstInExpression = <T extends Operand>(expression: Expression) => <T>(expression as Array<Operand>)[0];
 
 const getRegexMatchArray = (regex: RegExp, input: string) => {
     let match: string[] = regex.exec(input) || [];
@@ -50,10 +55,13 @@ const getRegexMatchArray = (regex: RegExp, input: string) => {
     return match;
 };
 
-const throwError = (...msg: string[]) => { throw new Error(msg.join('')); };
-const throwInvalidOperationError = (operator: string) => throwError(`Operator ${operator} is not valid`);
+const getExpression = (token: string) => expressionCache[token].expression;
 
-const getOperation = (operation: string, left: Operatee, right?: Operatee) => (<IKeyFunction>{
+const throwError = (...msg: string[]) => { throw new Error(msg.join('')); };
+const throwInvalidOperationError = (operator: string, token: string) => throwError(`Operator [${operator}] is not valid in expression [${getExpression(token)}]`);
+const throwInvalidExpressionError = (token: string) => throwError(`Invalid expression [${getExpression(token)}]`);
+
+const getOperation = (operation: string, left: Operand, right?: Operand) => (<IKeyFunction>{
     '==': () => asFunction(left) == asFunction(right),
     '!=': () => asFunction(left) != asFunction(right),
     '===': () => asFunction(left) === asFunction(right),
@@ -67,31 +75,37 @@ const getOperation = (operation: string, left: Operatee, right?: Operatee) => (<
 })[operation];
 
 const evaluateNot = (nots: string[], value: string, controller: IKeyValue<any>, parserToken: string) => {
-    let evaluate: Operatee;
+    let evaluate: Operand;
     nots.shift();
     if (nots.length) {
         evaluate = evaluateNot(nots, value, controller, parserToken);
     }
 
-    return () => !asFunction(evaluate || getValue(value, controller, parserToken));
+    const operand = processOperand(value, controller, parserToken);
+    return () => !asFunction(evaluate || operand);
 };
 
 const getPropertyEval = (obj: IKeyValue<any>, prop: string) => (() => obj[prop]);
 
 const setField = (field: string, parserToken: string) => {
-    let cache = fieldsCache[parserToken];
+    let cache = expressionCache[parserToken].fields;
     if (!cache) {
-        cache = fieldsCache[parserToken] = [];
+        cache = expressionCache[parserToken].fields = [];
     }
     cache.push(field);
 };
 
-const untilTruthy = (...fns: Function[]) => fns.every((fn) => !fn());
+/**
+ * Executes functions in series until one of them returns a truthy value.
+ * If it does, the function returns true.
+ * @param fns Functions to be executed
+ */
+const untilTruthy = (...fns: Function[]) => !fns.every((fn) => !fn());
 
 /* Processing Functions
 ----------------------------------------------------------------*/
 
-const getValue = (m: any, controller: IKeyValue<any>, parserToken: string): any => {
+const processOperand = (m: any, controller: IKeyValue<any>, parserToken: string): any => {
     let match;
     if ((match = getRegexMatchArray(NOT_REGEX, m))) {
         const nots = match[0].split('');
@@ -105,9 +119,9 @@ const getValue = (m: any, controller: IKeyValue<any>, parserToken: string): any 
         return parseInt(m);
     } else if ((match = STRING_REGEX.exec(m))) {
         return match[1];
-    } else {
-        return m;
     }
+    
+    throwInvalidExpressionError(parserToken);
 };
 
 const processLogicalOperation = (operation: string, expression: any, controller: IKeyValue<any>, parserToken: string) => {
@@ -120,7 +134,7 @@ const processLogicalOperation = (operation: string, expression: any, controller:
         let left = processExpression(expression[leftIndex], controller, parserToken);
         let right = processExpression(expression[rightIndex], controller, parserToken);
         const result = getOperation(operation, getFirstInExpression(left), getFirstInExpression(right));
-        if (!result) throwInvalidOperationError(operation);
+        if (!result) throwInvalidOperationError(operation, parserToken);
         expression[leftIndex] = result;
         expression.splice(index, 2);
 
@@ -147,8 +161,12 @@ const processEquality = (expression: Expression, controller: IKeyValue<any>, par
     let match: RegExpMatchArray;
     let operatorFunc: Evaluator;
     if (expression.length === 1 && (match = getRegexMatchArray(EQUALITY_REGEX, getFirstInExpression<string>(expression)))) {
-        const left = getValue(match[0], controller, parserToken);
-        const right = getValue(match[2], controller, parserToken);
+        const left = processOperand(match[0], controller, parserToken);
+        let right = match[2];
+        if (right) {
+            right = processOperand(match[2], controller, parserToken);
+        }
+
         const operation = match[1];
         if (isFunction(left) && !right && !operation) {
             operatorFunc = left as () => boolean;
@@ -156,7 +174,7 @@ const processEquality = (expression: Expression, controller: IKeyValue<any>, par
             operatorFunc = getOperation(match[1], left, right);
         }
 
-        if (!operatorFunc) throwInvalidOperationError(match[1]);
+        if (!operatorFunc) throwInvalidOperationError(match[1], parserToken);
 
         setFirstInExpression(expression, operatorFunc);
 
@@ -170,17 +188,19 @@ const processExpression = (expression: Expression, controller: IKeyValue<any>, p
     }
 
     if (expression.length === 3 && !includes(LOGICAL_OPERATORS, getMiddleItem(expression))) {
-        throwError(`Invalid logical operator [${<string>getMiddleItem(expression)}]`);
+        throwError(`Invalid logical operator [${<string>getMiddleItem(expression)}] in expression [${getExpression(parserToken)}]`);
     }
 
-    untilTruthy(
+    if (!untilTruthy(
         () => processEquality(expression, controller, parserToken),
         () => processExplicitPrecedence(expression, controller, parserToken),
         () => processLogicalOperation('&&', expression, controller, parserToken),
         () => processLogicalOperation('||', expression, controller, parserToken)
-    );
+    ) && expression.length === 1 && !isFunction(getFirstInExpression(expression))) {
+        throwInvalidExpressionError(parserToken);
+    }
 
-    if (expression.length > 1 || !isFunction(expression[0])) {
+    if (expression.length > 1 || !isFunction(getFirstInExpression(expression))) {
         return processExpression(expression, controller, parserToken);
     } else {
         return expression;
@@ -190,17 +210,19 @@ const processExpression = (expression: Expression, controller: IKeyValue<any>, p
 /* Exported Functions
 ----------------------------------------------------------------*/
 
-export const getFields = (token: string) => fieldsCache[token];
-export const deleteFromCache = (token: string) => delete fieldsCache[token];
+export const getFields = (token: string) => expressionCache[token].fields;
+export const deleteFromCache = (token: string) => delete expressionCache[token];
 
 export const generateRandomKey = () => Math.floor((1 + Math.random()) * 0x100000000000000).toString(16).substring(1);
 
 export const buildEvaluator = (expression: string, controller: IKeyValue<any>, parserToken: string): Evaluator => {
     const match = matchExpression(expression) || [];
+
+    expressionCache[parserToken] = { expression: expression };
     
     if (match.length % 2 === 0) {
-        throwError(`Invalid expression [${expression}]`);
-    }
+        throwInvalidExpressionError(parserToken);
+    }    
 
     const result = processExpression(match, controller, parserToken);
 
