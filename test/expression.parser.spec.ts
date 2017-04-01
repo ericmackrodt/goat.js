@@ -225,7 +225,9 @@ describe('ExpressionParser', () => {
 
         { expression: 'prop1 === false && (prop2 === true || prop3 === true)', obj: { prop1: true, prop2: true, prop3: true }, expect: false },
 
-        { expression: 'prop1 === false && (prop2 === false || (prop2 === true || prop3 === false)) || prop5 === false', obj: { prop1: true, prop2: true, prop3: true, prop4: true, prop5: true }, expect: false }
+        { expression: 'prop1 === false && (prop2 === false || (prop2 === true || prop3 === false)) || prop5 === false', obj: { prop1: true, prop2: true, prop3: true, prop4: true, prop5: true }, expect: false },
+
+        { expression: 'prop.sub === true', obj: { prop: { sub: true } }, expect: true },
     ]);
 
     it('should list properties when evaluating', () => {

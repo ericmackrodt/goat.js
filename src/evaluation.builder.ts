@@ -42,6 +42,8 @@ const getMiddleItem = (expression: Expression) => expression[Math.round((express
 const matchExpression = (expression: string) => 
     expression.match(/([&|]{2})|([\(\)])|([!\w\.]+)\s*([^\w\s|&]{1,3})?\s*([^\sˆ&|\)]+)?/g);
 
+const hasSubProperties = (expression: string) => /^\s*(\w+)(\.\w+)+\s*$/g.test(expression);
+
 const asFunction = (val: any) => isFunction(val) ? val() : val;
 
 const setFirstInExpression = (expression: Expression, value: Operand) => (expression as Array<Operand>)[0] = value;
@@ -87,6 +89,27 @@ const evaluateNot = (nots: string[], value: string, controller: IKeyValue<any>, 
 
 const getPropertyEval = (obj: IKeyValue<any>, prop: string) => (() => obj[prop]);
 
+const callSubField = (obj: IKeyValue<any>, prop: string, sub: string) => (() => ((o: IKeyValue<any>) => o[sub])(obj[prop]));
+
+// const getSubFieldEval = (obj: IKeyValue<any>, fields: string[]) => {
+//     debugger;
+//     const first = fields[0];
+//     fields.shift();
+
+//     const fn = (r: any, f: any) => { 
+//         return (fn: any) => {
+//             const rf = fn();
+//             return () => r[f](rf);
+//         };
+//     };
+
+//     if (fields.length) {
+//         value = getSubFieldEval(value, fields);
+//     }
+    
+//     return getPropertyEval(value, first);
+// }
+
 const setField = (field: string, parserToken: string) => {
     let cache = expressionCache[parserToken].fields;
     if (!cache) {
@@ -115,6 +138,9 @@ const processOperand = (m: any, controller: IKeyValue<any>, parserToken: string)
     } else if (m in controller) {
         setField(m, parserToken);
         return getPropertyEval(controller, m);
+    // } else if (hasSubProperties(m)) {
+    //     setField(m, parserToken);
+    //     return getSubFieldEval(controller, m.split('.'));
     } else if (!isNaN(m)) {
         return parseInt(m);
     } else if ((match = STRING_REGEX.exec(m))) {

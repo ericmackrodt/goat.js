@@ -3,8 +3,9 @@
 1.2.0
 -------
 
-- Some code refactor.
+- Extensive code refactor.
 - Add error messages for invalid expressions.
+- Add ability to evaluate properties in nested objects.
 
 1.1.0
 -------
