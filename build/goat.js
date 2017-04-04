@@ -85,21 +85,24 @@ return /******/ (function(modules) { // webpackBootstrap
 ----------------------------------------------------------------*/
 
 Object.defineProperty(exports, "__esModule", { value: true });
-var EQUALITY_REGEX = /^\s*([!\w\.]+)\s*([^\w\s|&]{1,3})?\s*([^\sˆ&|\\=)]+)?\s*$/;
+var EQUALITY_REGEX = /^\s*([^\sˆ&|\'"\(\)]+|["'][^'"]+["'])\s*$|^\s*([^\sˆ&|\'"\(\)]+|["'][^'"]*["'])\s*([^'"\w\s|&]{1,3})\s*([^\sˆ&|\'"\(\)]+|["'][^'"]*["'])\s*$/;
 var STRING_REGEX = /^['"](.*)['"]$/;
 var NOT_REGEX = /^\s*([!]+)\s*(\w+)\s*$/;
 var LOGICAL_OPERATORS = ['&&', '||'];
 var RELATIONAL_OPERATORS = ['==', '!=', '===', '!==', '!', '>=', '<=', '>', '<'];
 /* Cache Variables
 ----------------------------------------------------------------*/
-var fieldsCache = {};
+var expressionCache = {};
 /* Support Functions
 ----------------------------------------------------------------*/
 var isBoolean = function (value) { return ['true', 'false'].indexOf(value) > -1; };
 var isFunction = function (o) { return typeof o === 'function'; };
+var includes = function (o, value) { return o.indexOf(value) > -1; };
+var getMiddleItem = function (expression) { return expression[Math.round((expression.length - 1) / 2)]; };
 var matchExpression = function (expression) {
-    return expression.match(/([&|]{2})|([\(\)])|([!\w\.]+)\s*([^\w\s|&]{1,3})?\s*([^\sˆ&|\)]+)?/g);
+    return expression.match(/([&|]{2})|([\(\)])|([^\sˆ&|\'"\(\)]+|["'].+["'])\s*([^\w\s|&\(\)]{1,3})?\s*([^\sˆ&|\(\)]+)?/g);
 };
+var isProperty = function (expression) { return /^\s*([a-z]\w+)(\.[a-z]\w+)*\s*$/g.test(expression); };
 var asFunction = function (val) { return isFunction(val) ? val() : val; };
 var setFirstInExpression = function (expression, value) { return expression[0] = value; };
 var getFirstInExpression = function (expression) { return expression[0]; };
@@ -111,6 +114,7 @@ var getRegexMatchArray = function (regex, input) {
     match.shift();
     return match;
 };
+var getExpression = function (token) { return expressionCache[token].expression; };
 var throwError = function () {
     var msg = [];
     for (var _i = 0; _i < arguments.length; _i++) {
@@ -118,7 +122,8 @@ var throwError = function () {
     }
     throw new Error(msg.join(''));
 };
-var throwInvalidOperationError = function (operator) { return throwError("Operator " + operator + " is not valid"); };
+var throwInvalidOperationError = function (operator, token) { return throwError("Operator [" + operator + "] is not valid in expression [" + getExpression(token) + "]"); };
+var throwInvalidExpressionError = function (token) { return throwError("Invalid expression [" + getExpression(token) + "]"); };
 var getOperation = function (operation, left, right) { return {
     '==': function () { return asFunction(left) == asFunction(right); },
     '!=': function () { return asFunction(left) != asFunction(right); },
@@ -137,26 +142,47 @@ var evaluateNot = function (nots, value, controller, parserToken) {
     if (nots.length) {
         evaluate = evaluateNot(nots, value, controller, parserToken);
     }
-    return function () { return !asFunction(evaluate || getValue(value, controller, parserToken)); };
+    var operand = processOperand(value, controller, parserToken);
+    return function () { return !asFunction(evaluate || operand); };
 };
-var getPropertyEval = function (obj, prop) { return (function () { return obj[prop]; }); };
+var buildPropertyCaller = function (fields, lastFunction) {
+    var last = fields[fields.length - 1];
+    fields.pop();
+    // function that evaluates current property
+    var fn;
+    if (!lastFunction) {
+        fn = function (obj) { return obj[last]; };
+    }
+    else {
+        fn = function (obj) { return lastFunction(obj[last]); };
+    }
+    if (fields.length) {
+        return buildPropertyCaller(fields, fn);
+    }
+    return fn;
+};
 var setField = function (field, parserToken) {
-    var cache = fieldsCache[parserToken];
+    var cache = expressionCache[parserToken].fields;
     if (!cache) {
-        cache = fieldsCache[parserToken] = [];
+        cache = expressionCache[parserToken].fields = [];
     }
     cache.push(field);
 };
+/**
+ * Executes functions in series until one of them returns a truthy value.
+ * If it does, the function returns true.
+ * @param fns Functions to be executed
+ */
 var untilTruthy = function () {
     var fns = [];
     for (var _i = 0; _i < arguments.length; _i++) {
         fns[_i] = arguments[_i];
     }
-    return fns.every(function (fn) { return !fn(); });
+    return !fns.every(function (fn) { return !fn(); });
 };
 /* Processing Functions
 ----------------------------------------------------------------*/
-var getValue = function (m, controller, parserToken) {
+var processOperand = function (m, controller, parserToken) {
     var match;
     if ((match = getRegexMatchArray(NOT_REGEX, m))) {
         var nots = match[0].split('');
@@ -165,19 +191,18 @@ var getValue = function (m, controller, parserToken) {
     else if (isBoolean(m)) {
         return m === 'true';
     }
-    else if (m in controller) {
+    else if (isProperty(m)) {
+        var caller_1 = buildPropertyCaller(m.split('.'));
         setField(m, parserToken);
-        return getPropertyEval(controller, m);
+        return function () { return caller_1(controller); };
     }
     else if (!isNaN(m)) {
         return parseInt(m);
     }
     else if ((match = STRING_REGEX.exec(m))) {
-        return match[1];
+        return getMiddleItem(match);
     }
-    else {
-        return m;
-    }
+    throwInvalidExpressionError(parserToken);
 };
 var processLogicalOperation = function (operation, expression, controller, parserToken) {
     var index = -1;
@@ -189,8 +214,6 @@ var processLogicalOperation = function (operation, expression, controller, parse
         var left = processExpression(expression[leftIndex], controller, parserToken);
         var right = processExpression(expression[rightIndex], controller, parserToken);
         var result = getOperation(operation, getFirstInExpression(left), getFirstInExpression(right));
-        if (!result)
-            throwInvalidOperationError(operation);
         expression[leftIndex] = result;
         expression.splice(index, 2);
         return result;
@@ -214,8 +237,11 @@ var processEquality = function (expression, controller, parserToken) {
     var match;
     var operatorFunc;
     if (expression.length === 1 && (match = getRegexMatchArray(EQUALITY_REGEX, getFirstInExpression(expression)))) {
-        var left = getValue(match[0], controller, parserToken);
-        var right = getValue(match[2], controller, parserToken);
+        var left = processOperand(match[0], controller, parserToken);
+        var right = match[2];
+        if (right) {
+            right = processOperand(match[2], controller, parserToken);
+        }
         var operation = match[1];
         if (isFunction(left) && !right && !operation) {
             operatorFunc = left;
@@ -224,7 +250,7 @@ var processEquality = function (expression, controller, parserToken) {
             operatorFunc = getOperation(match[1], left, right);
         }
         if (!operatorFunc)
-            throwInvalidOperationError(match[1]);
+            throwInvalidOperationError(match[1], parserToken);
         setFirstInExpression(expression, operatorFunc);
         return operatorFunc;
     }
@@ -233,8 +259,13 @@ var processExpression = function (expression, controller, parserToken) {
     if (!(expression instanceof Array)) {
         expression = [expression];
     }
-    untilTruthy(function () { return processEquality(expression, controller, parserToken); }, function () { return processExplicitPrecedence(expression, controller, parserToken); }, function () { return processLogicalOperation('&&', expression, controller, parserToken); }, function () { return processLogicalOperation('||', expression, controller, parserToken); });
-    if (expression.length > 1 || !isFunction(expression[0])) {
+    if (expression.length === 3 && !includes(LOGICAL_OPERATORS, getMiddleItem(expression))) {
+        throwError("Invalid logical operator [" + getMiddleItem(expression) + "] in expression [" + getExpression(parserToken) + "]");
+    }
+    if (!untilTruthy(function () { return processEquality(expression, controller, parserToken); }, function () { return processExplicitPrecedence(expression, controller, parserToken); }, function () { return processLogicalOperation('&&', expression, controller, parserToken); }, function () { return processLogicalOperation('||', expression, controller, parserToken); }) && (expression.length % 2) === 1 && !isFunction(getFirstInExpression(expression))) {
+        throwInvalidExpressionError(parserToken);
+    }
+    if (expression.length > 1 || !isFunction(getFirstInExpression(expression))) {
         return processExpression(expression, controller, parserToken);
     }
     else {
@@ -243,17 +274,17 @@ var processExpression = function (expression, controller, parserToken) {
 };
 /* Exported Functions
 ----------------------------------------------------------------*/
-exports.getFields = function (token) { return fieldsCache[token]; };
-exports.deleteFromCache = function (token) { return delete fieldsCache[token]; };
+exports.getFields = function (token) { return expressionCache[token].fields; };
+exports.deleteFromCache = function (token) { return delete expressionCache[token]; };
 exports.generateRandomKey = function () { return Math.floor((1 + Math.random()) * 0x100000000000000).toString(16).substring(1); };
 exports.buildEvaluator = function (expression, controller, parserToken) {
     var match = matchExpression(expression) || [];
-    var result = processExpression(match, controller, parserToken);
-    var evaluator = getFirstInExpression(result);
-    if (result.length === 1 && isFunction(evaluator)) {
-        return evaluator;
+    expressionCache[parserToken] = { expression: expression };
+    if (match.length % 2 === 0) {
+        throwInvalidExpressionError(parserToken);
     }
-    ;
+    var result = processExpression(match, controller, parserToken);
+    return getFirstInExpression(result);
 };
 
 
@@ -285,6 +316,16 @@ var default_1 = (function () {
          */
         get: function () {
             return this._fields;
+        },
+        enumerable: true,
+        configurable: true
+    });
+    Object.defineProperty(default_1.prototype, "currentEvaluator", {
+        /**
+         * Returns the current evaluator function without triggering it like the evaluate() function does.
+         */
+        get: function () {
+            return this._evaluator;
         },
         enumerable: true,
         configurable: true

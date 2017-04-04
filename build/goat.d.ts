@@ -9,6 +9,10 @@ export default class  {
             */
         readonly fields: string[];
         /**
+            * Returns the current evaluator function without triggering it like the evaluate() function does.
+            */
+        readonly currentEvaluator: () => boolean;
+        /**
             * Creates new instance of the ExpressionParser.
             * @param _expression Expression to be parsed
             * @param _controller Object with fields that will be evaluated
