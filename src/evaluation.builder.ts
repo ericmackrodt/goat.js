@@ -1,7 +1,7 @@
 /* Constants
 ----------------------------------------------------------------*/
 
-const EQUALITY_REGEX = /^\s*([!\w\.]+)\s*$|^\s*([!\w\.]+)\s*([^'"\w\s|&]{1,3})\s*([^\sˆ&|\\=)]+)\s*$/;
+const EQUALITY_REGEX = /^\s*([^\sˆ&|\'"\(\)]+|["'][^'"]+["'])\s*$|^\s*([^\sˆ&|\'"\(\)]+|["'][^'"]*["'])\s*([^'"\w\s|&]{1,3})\s*([^\sˆ&|\'"\(\)]+|["'][^'"]*["'])\s*$/;
 const STRING_REGEX = /^['"](.*)['"]$/;
 const NOT_REGEX = /^\s*([!]+)\s*(\w+)\s*$/;
 const LOGICAL_OPERATORS = ['&&', '||'];
@@ -11,6 +11,7 @@ const RELATIONAL_OPERATORS = ['==', '!=', '===', '!==', '!', '>=', '<=', '>', '<
 ----------------------------------------------------------------*/
 
 type Evaluator = () => boolean;
+type ControllerFn = (obj: IKeyValue<any>) => any;
 type Operand = string | Evaluator;
 type Expression = RegExpMatchArray | Array<Operand>;
 
@@ -40,9 +41,9 @@ const includes = <T>(o: T[], value: T) => o.indexOf(value) > -1;
 const getMiddleItem = (expression: Expression) => expression[Math.round((expression.length - 1) / 2)];
 
 const matchExpression = (expression: string) => 
-    expression.match(/([&|]{2})|([\(\)])|([!\w\.]+)\s*([^\w\s|&]{1,3})?\s*([^\sˆ&|\)]+)?/g);
+    expression.match(/([&|]{2})|([\(\)])|([^\sˆ&|\'"\(\)]+|["'].+["'])\s*([^\w\s|&\(\)]{1,3})?\s*([^\sˆ&|\(\)]+)?/g);
 
-const hasSubProperties = (expression: string) => /^\s*(\w+)(\.\w+)+\s*$/g.test(expression);
+const isProperty = (expression: string) => /^\s*([a-z]\w+)(\.[a-z]\w+)*\s*$/g.test(expression);
 
 const asFunction = (val: any) => isFunction(val) ? val() : val;
 
@@ -87,28 +88,25 @@ const evaluateNot = (nots: string[], value: string, controller: IKeyValue<any>, 
     return () => !asFunction(evaluate || operand);
 };
 
-const getPropertyEval = (obj: IKeyValue<any>, prop: string) => (() => obj[prop]);
+const buildPropertyCaller = (fields: string[], lastFunction?: ControllerFn): ControllerFn => {
+    const last = fields[fields.length - 1];
+    fields.pop();
 
-const callSubField = (obj: IKeyValue<any>, prop: string, sub: string) => (() => ((o: IKeyValue<any>) => o[sub])(obj[prop]));
+    // function that evaluates current property
+    let fn: ControllerFn;
 
-// const getSubFieldEval = (obj: IKeyValue<any>, fields: string[]) => {
-//     debugger;
-//     const first = fields[0];
-//     fields.shift();
+    if (!lastFunction) {
+        fn = (obj) => obj[last];
+    } else {
+        fn = (obj) => lastFunction(obj[last]);
+    }
 
-//     const fn = (r: any, f: any) => { 
-//         return (fn: any) => {
-//             const rf = fn();
-//             return () => r[f](rf);
-//         };
-//     };
+    if (fields.length) {
+        return buildPropertyCaller(fields, fn);
+    }
 
-//     if (fields.length) {
-//         value = getSubFieldEval(value, fields);
-//     }
-    
-//     return getPropertyEval(value, first);
-// }
+    return fn;
+};
 
 const setField = (field: string, parserToken: string) => {
     let cache = expressionCache[parserToken].fields;
@@ -135,12 +133,10 @@ const processOperand = (m: any, controller: IKeyValue<any>, parserToken: string)
         return evaluateNot(nots, match[1], controller, parserToken);
     } else if (isBoolean(m)) {
         return m === 'true';
-    } else if (m in controller) {
+    } else if (isProperty(m)) {
+        const caller = buildPropertyCaller(m.split('.'));
         setField(m, parserToken);
-        return getPropertyEval(controller, m);
-    // } else if (hasSubProperties(m)) {
-    //     setField(m, parserToken);
-    //     return getSubFieldEval(controller, m.split('.'));
+        return () => caller(controller);
     } else if (!isNaN(m)) {
         return parseInt(m);
     } else if ((match = STRING_REGEX.exec(m))) {

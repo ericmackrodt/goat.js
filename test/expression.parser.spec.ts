@@ -228,6 +228,18 @@ describe('ExpressionParser', () => {
         { expression: 'prop1 === false && (prop2 === false || (prop2 === true || prop3 === false)) || prop5 === false', obj: { prop1: true, prop2: true, prop3: true, prop4: true, prop5: true }, expect: false },
 
         { expression: 'prop.sub === true', obj: { prop: { sub: true } }, expect: true },
+        { expression: 'true === prop.sub', obj: { prop: { sub: true } }, expect: true },
+
+        { expression: 'prop.sub.extra === \'val\'', obj: { prop: { sub: { extra: 'val' } } }, expect: true },
+        { expression: '\'val\' === prop.sub.extra', obj: { prop: { sub: { extra: 'val' } } }, expect: true },
+
+        { expression: 'true === true', obj: { }, expect: true },
+
+        { expression: 'true === false', obj: { }, expect: false },
+        { expression: '\'string\' === \'string\'', obj: { }, expect: true },
+
+        { expression: 'prop1 === prop2', obj: { prop1: true, prop2: true }, expect: true },
+        { expression: 'prop1 === prop2', obj: { prop1: true, prop2: false }, expect: false }
     ]);
 
     it('should list properties when evaluating', () => {
@@ -280,6 +292,14 @@ describe('ExpressionParser', () => {
     it('should throw on multiple invalid logical operators with precedence on end', () => {
         const sut = new ExpressionParser('prop === 1 |& (prop2 === 2 |& prop3 === 3)', { prop: 1, prop2: 2, prop3: 3 });
         expect(() => sut.evaluate()).to.throw('Invalid logical operator [|&] in expression [prop === 1 |& (prop2 === 2 |& prop3 === 3)]');
+    });
+
+    it('should not create a new evaluator when evaluating multiple times', () => {
+        const sut = new ExpressionParser('prop === 1', { prop: 1 });
+        sut.evaluate();
+        const evaluator = sut.currentEvaluator;
+        sut.evaluate();
+        expect(evaluator).to.be.equals(sut.currentEvaluator);
     });
 
     function executeInvalidExpressionTests(tests: string[]) {

@@ -16,6 +16,13 @@ export default class {
     }
 
     /**
+     * Returns the current evaluator function without triggering it like the evaluate() function does.
+     */
+    public get currentEvaluator() {
+        return this._evaluator;
+    }
+
+    /**
      * Creates new instance of the ExpressionParser.
      * @param _expression Expression to be parsed
      * @param _controller Object with fields that will be evaluated
