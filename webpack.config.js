@@ -55,7 +55,7 @@ const config = {
   },
   resolve: {
     modules: [path.resolve('./src')],
-    extensions: ['.json', '.js']
+    extensions: ['.json', '.ts']
   },
   plugins: plugins
 };

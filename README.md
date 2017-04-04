@@ -1,6 +1,7 @@
 # goat.js
 Goat.js is a conditional expre-he-he-he-ssion parser.
 
+[![npm version](https://badge.fury.io/js/goatjs.svg)](https://badge.fury.io/js/goatjs)
 [![Build Status](https://travis-ci.org/ericmackrodt/goat.js.svg?branch=master)](https://travis-ci.org/ericmackrodt/goat.js)
 [![Coverage Status](https://coveralls.io/repos/github/ericmackrodt/goat.js/badge.svg?branch=master)](https://coveralls.io/github/ericmackrodt/goat.js?branch=master)
 
